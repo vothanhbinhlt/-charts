@@ -1,0 +1,64 @@
+{{- if .Values.volumes }}
+{{- range .Values.volumes }}
+{{ if or (eq .type "ebs-gp2") (eq .type "aws-ebs") }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ include "basic-hpa.fullname" $ }}-{{ .name }}"
+  labels:
+    {{- include "basic-hpa.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .capacity }}
+  storageClassName: {{ .type }}
+  {{- if .dataSource }}
+  dataSource:
+    {{- toYaml .dataSource | nindent 4 }}
+  {{- end }}
+{{ end }}
+{{ if eq .type "aws-efs" }}
+# Static provisioning
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: "{{ include "basic-hpa.fullname" $ }}-{{ .name }}"
+provisioner: efs.csi.aws.com
+allowVolumeExpansion: true
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "{{ include "basic-hpa.fullname" $ }}-{{ .name }}"
+spec:
+  capacity:
+    storage: {{ .capacity }}
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .name }}
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: {{ .volumeHandler }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ include "basic-hpa.fullname" $ }}-{{ .name }}"
+  labels:
+    {{- include "basic-hpa.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .name }}
+  resources:
+    requests:
+      storage: {{ .capacity }}
+{{ end }}
+{{- end }}
+{{- end -}}

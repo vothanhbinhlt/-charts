@@ -1,0 +1,1 @@
+# Basic HPA Helm Chart
